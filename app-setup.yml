@@ -1,0 +1,53 @@
+---
+- name: clone and build github repository
+  hosts: all
+  vars:
+    repo_url: 
+  tasks:
+    - name: Install git
+      package: 
+        name: git
+        state: present
+    
+    - name: clone github repository
+      git: 
+        repo: "{{ repo_url }}"
+        dest: /home/ec2-user/ansiblecms
+        clone: yes
+
+    - name: Install Maven On Redhat-Distro
+      yum:
+        name: maven 
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Copying the template of application.properties 
+      template: 
+        src: templates/application.j2
+        dest: /home/ec2-user/ansiblecms/src/main/resources/application.properties
+
+    - name: Build Code 
+      command: sudo mvn clean install 
+      args:
+        chdir: /home/ec2-user/ansiblecms
+    
+    - name: Stop Tomcat Service For artifact copy
+      service: 
+        name: tomcat
+        state: stopped
+    
+    - name: Remove Old Artifact ROOT
+      file: 
+        path: /usr/local/tomcat9/webapps/ROOT
+        state: absent
+
+    - name: Copy New Artifact 
+      copy:
+        src: /home/ec2-user/ansiblecms/target/vprofile-v2.war
+        dest: /usr/local/tomcat9/webapps/ROOT.war
+        remote_src: yes
+
+    - name: Start Tomcat 
+      service: 
+        name: tomcat
+        state: started
